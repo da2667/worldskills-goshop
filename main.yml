@@ -1,0 +1,220 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: GO Shop Web App Infrastructure
+
+Parameters:
+  FrontendVPCName:
+    Type: String
+    Default: FrontendVPC
+
+  BackendVPCName:
+    Type: String
+    Default: BackendVPC
+
+  DBInstanceIdentifier:
+    Type: String
+    Default: GoShop-RDS-DB
+
+  DBName:
+    Type: String
+    Default: gorgeouscupcakes
+
+  DBUser:
+    Type: String
+    Default: admin
+
+  DBPass:
+    Type: String
+    NoEcho: true
+
+  KeyName:
+    Type: String
+
+  DBSubnetGroupNameTagValue:
+    Type: String
+
+Resources:
+  FrontendVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/24
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Ref FrontendVPCName
+
+  BackendVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.1.0/24
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Ref BackendVPCName
+
+  FrontendSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: ap-southeast-2a
+      VpcId: !Ref FrontendVPC
+      CidrBlock: 10.0.0.0/25
+      Tags:
+        - Key: Name
+          Value: value
+
+  BackendSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: ap-southeast-2a
+      VpcId: !Ref BackendVPC
+      CidrBlock: 10.0.1.0/25
+      Tags:
+        - Key: Name
+          Value: value
+
+  BackendSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: ap-southeast-2b
+      VpcId: !Ref BackendVPC
+      CidrBlock: 10.0.1.128/25
+      Tags:
+        - Key: Name
+          Value: value
+
+  VpcPeering:
+    Type: AWS::EC2::VPCPeeringConnection
+    Properties:
+      VpcId: !Ref FrontendVPC
+      PeerVpcId: !Ref BackendVPC
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: DB SubnetGroup for GOShop RDS
+      SubnetIds:
+        - !Ref BackendSubnet
+        - !Ref BackendSubnet2
+      Tags:
+        - Key: Name
+          Value: !Ref DBSubnetGroupNameTagValue
+
+  IGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: IGW
+
+  EIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      InstanceId: !Ref WebAppInstance
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref FrontendVPC
+      InternetGatewayId: !Ref IGW
+
+  FrontendRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref FrontendVPC
+      Tags:
+        - Key: Name
+          Value: FrontendVPC
+
+  InternetRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref FrontendRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref IGW
+
+  RouteTableAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref FrontendSubnet
+      RouteTableId: !Ref FrontendRouteTable
+
+  WebAppSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: WebAppSG
+      GroupDescription: Web App Frontend Security Group
+      VpcId: !Ref FrontendVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: WebAppSG
+
+  DBSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: DBSG
+      GroupDescription: Database and Backend Security Group
+      VpcId: !Ref BackendVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: 10.0.0.0/25
+      Tags:
+        - Key: Name
+          Value: DBSG
+
+  WebAppInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      KeyName: !Ref KeyName
+      ImageId: ami-03b4905c5f84d954b
+      InstanceType: t2.medium
+      SecurityGroupIds:
+        - !Ref WebAppSG
+      SubnetId: !Ref FrontendSubnet
+      UserData:
+        Fn::Base64:
+          !Sub |
+            #!/bin/bash -xe
+            sudo su
+            yum update -y
+            yum install -y httpd
+            cd /var/www/html
+            wget https://github.com/elankayer/goshop/archive/refs/tags/folders.zip
+            unzip folders.zip
+            cd goshop-folders
+            cp -r gorgeouscupcakes-main/* /var/www/html/
+            cd ..
+            rm -rf goshop-folders folders.zip
+            systemctl enable httpd 
+            systemctl start httpd
+      Tags:
+        - Key: Name
+          Value: WebAppInstance
+
+  DBInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllocatedStorage: 20
+      DBInstanceClass: db.t2.micro
+      AvailabilityZone: ap-southeast-2a
+      DBInstanceIdentifier: !Ref DBInstanceIdentifier
+      DBName: !Ref DBName
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      Engine: mysql
+      EngineVersion: 8.0.35
+      MasterUsername: !Ref DBUser
+      MasterUserPassword: !Ref DBPass
+      MultiAZ: false
+      Port: 3306
+      PubliclyAccessible: false
+      VPCSecurityGroups:
+        - !Ref DBSG
+      Tags:
+        - Key: Name
+          Value: !Ref DBInstanceIdentifier
