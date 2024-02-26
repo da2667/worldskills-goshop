@@ -130,10 +130,19 @@ Resources:
         - Key: Name
           Value: FrontendVPC
 
-  NATEIP:
-    Type: AWS::EC2::EIP
+  FrontendToBackendRoute:
+    Type: AWS::EC2::Route
     Properties:
-      Domain: standard
+      RouteTableId: !Ref FrontendRouteTable
+      DestinationCidrBlock: 10.0.1.0/24
+      VpcPeeringConnectionId: !Ref VpcPeering
+
+  BackendRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref BackendRouteTable
+      DestinationCidrBlock: 10.0.0.0/24
+      VpcPeeringConnectionId: !Ref VpcPeering
          
   BackendRouteTable:
     Type: AWS::EC2::RouteTable
@@ -172,8 +181,8 @@ Resources:
   NATGW:
     Type: AWS::EC2::NatGateway
     Properties:
-      AllocationId: !GetAtt NATEIP.AllocationId
-      SubnetId: !Ref FrontendSubnet
+      ConnectivityType: private
+      SubnetId: !Ref BackendSubnet
 
   WebAppSG:
     Type: AWS::EC2::SecurityGroup
@@ -200,7 +209,7 @@ Resources:
         - IpProtocol: tcp
           FromPort: 3306
           ToPort: 3306
-          CidrIp: 10.0.0.0/25
+          SourceSecurityGroupId: !Ref WebAppSG
       Tags:
         - Key: Name
           Value: DBSG
