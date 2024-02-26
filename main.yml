@@ -33,6 +33,11 @@ Parameters:
     Type: String
 
 Resources:
+  KeyPair:
+    Type: AWS::EC2::KeyPair
+    Properties:
+      KeyName: !Ref KeyName
+
   FrontendVPC:
     Type: AWS::EC2::VPC
     Properties:
@@ -171,7 +176,7 @@ Resources:
   WebAppInstance:
     Type: AWS::EC2::Instance
     Properties:
-      KeyName: !Ref KeyName
+      KeyName: !Ref KeyPair
       ImageId: ami-03b4905c5f84d954b
       InstanceType: t2.medium
       SecurityGroupIds:
@@ -202,7 +207,6 @@ Resources:
     Properties:
       AllocatedStorage: 20
       DBInstanceClass: db.t2.micro
-      AvailabilityZone: ap-southeast-2a
       DBInstanceIdentifier: !Ref DBInstanceIdentifier
       DBName: !Ref DBName
       DBSubnetGroupName: !Ref DBSubnetGroup
