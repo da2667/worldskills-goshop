@@ -164,6 +164,13 @@ Resources:
       SubnetId: !Ref BackendSubnet2
       RouteTableId: !Ref BackendRouteTable
 
+  FrontendRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref FrontendRouteTable
+      DestinationCidrBlock: 10.0.1.0/24
+      VpcPeeringConnectionId: !Ref VpcPeering
+
   InternetRoute:
     Type: AWS::EC2::Route
     Properties:
@@ -176,13 +183,6 @@ Resources:
     Properties:
       SubnetId: !Ref FrontendSubnet
       RouteTableId: !Ref FrontendRouteTable
-
-
-  NATGW:
-    Type: AWS::EC2::NatGateway
-    Properties:
-      ConnectivityType: private
-      SubnetId: !Ref BackendSubnet
 
   WebAppSG:
     Type: AWS::EC2::SecurityGroup
