@@ -130,6 +130,26 @@ Resources:
         - Key: Name
           Value: FrontendVPC
 
+  BackendRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref BackendVPC
+      Tags:
+        - Key: Name
+          Value: BackendVPC
+
+  BackendRouteTableAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref BackendSubnet
+      RouteTableId: !Ref BackendRouteTable
+
+  BackendRouteTableAssoc2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref BackendSubnet2
+      RouteTableId: !Ref BackendRouteTable
+
   InternetRoute:
     Type: AWS::EC2::Route
     Properties:
@@ -137,11 +157,16 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref IGW
 
-  RouteTableAssoc:
+  FrontendRouteTableAssoc:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: !Ref FrontendSubnet
       RouteTableId: !Ref FrontendRouteTable
+
+  NATGW:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      SubnetId: !Ref FrontendSubnet
 
   WebAppSG:
     Type: AWS::EC2::SecurityGroup
