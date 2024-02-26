@@ -130,13 +130,6 @@ Resources:
         - Key: Name
           Value: FrontendVPC
 
-  FrontendToBackendRoute:
-    Type: AWS::EC2::Route
-    Properties:
-      RouteTableId: !Ref FrontendRouteTable
-      DestinationCidrBlock: 10.0.1.0/24
-      VpcPeeringConnectionId: !Ref VpcPeering
-
   BackendRoute:
     Type: AWS::EC2::Route
     Properties:
