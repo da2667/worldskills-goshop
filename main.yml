@@ -216,26 +216,58 @@ Resources:
     Properties:
       KeyName: !Ref KeyPair
       ImageId: ami-03b4905c5f84d954b
-      InstanceType: t2.medium
+      InstanceType: t2.small
       SecurityGroupIds:
         - !Ref WebAppSG
       SubnetId: !Ref FrontendSubnet
       UserData:
         Fn::Base64:
-          !Sub |
-            #!/bin/bash -xe
-            sudo su
-            yum update -y
-            yum install -y httpd
-            cd /var/www/html
-            wget https://github.com/elankayer/goshop/archive/refs/tags/folders.zip
-            unzip folders.zip
-            cd goshop-folders
-            cp -r gorgeouscupcakes-main/* /var/www/html/
-            cd ..
-            rm -rf goshop-folders folders.zip
-            systemctl enable httpd 
-            systemctl start httpd
+          Fn::Sub:
+            - | 
+              #!/bin/bash -xe
+              yum update -y
+              yum install php php-common php-pear -y
+              yum install php-{cgi,curl,mbstring,gd,mysqlnd,gettext,json,xml,fpm,intl,zip} -y
+              cd /var/www/html
+              wget https://github.com/elankayer/goshop/archive/refs/tags/folders.zip
+              unzip folders.zip
+              cd goshop-folders
+              cp -r gorgeouscupcakes-main/* /var/www/html/
+              cd ..
+              rm -rf goshop-folders folders.zip
+              yum install mariadb105-server -y
+              mysql -h ${DBAddress} -u ${DBUsername} -p${DBPassword} gorgeouscupcakes < gorgeouscupcakes_v1.sql
+              rm -rf ./model/database.php
+              cat <<"EOF" > ./model/database.php 
+              <?php
+                //database connection details
+                $host = '${DBAddress}';
+                $user = '${DBUsername}';
+                $password = '${DBPassword}';
+                $database = 'gorgeouscupcakes';
+
+                //connect to database with a try/catch statement
+                //if the connection is not successful display the error message via database_error.php
+                //the PDOException class represents the error raised by PDO
+                //the PDO error is stored in the variable $e
+                //the PDO error is returned as a string via the getMessage() function
+                try
+                {
+                  $conn = new PDO("mysql:host=$host;dbname=$database", $user, $password);
+                }
+                catch(PDOException $e)
+                {
+                  $error_message = $e->getMessage();
+                  include('../view/database_error.php');
+                  exit();
+                }
+              ?>
+              EOF
+              systemctl enable httpd 
+              systemctl start httpd
+            - DBAddress: !GetAtt DBInstance.Endpoint.Address
+              DBUsername: !Ref DBUser
+              DBPassword: !Ref DBPass
       Tags:
         - Key: Name
           Value: WebAppInstance
